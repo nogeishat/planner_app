@@ -57,31 +57,33 @@ KV = """
             valign: "top"
             height: self.texture_size[1]
 
-
 <PlannerRoot>:
+    orientation: "vertical"
+
     BoxLayout:
-    size_hint_y: None
-    height: 50
+        size_hint_y: None
+        height: 50
 
-    Button:
-        text: "Sync"
-        on_press: app.sync()
-    
-    orientation: "horizontal"
-    spacing: 12
-    padding: 12
+        Button:
+            text: "Sync"
+            on_press: app.sync()
 
-    ToDoColumn:
-        column_title: "To Do List 1"
-        column_key: "list_1"
+    BoxLayout:
+        orientation: "horizontal"
+        spacing: 12
+        padding: 12
 
-    ToDoColumn:
-        column_title: "To Do List 2"
-        column_key: "list_2"
+        ToDoColumn:
+            column_title: "To Do List 1"
+            column_key: "list_1"
 
-    ToDoColumn:
-        column_title: "To Do List 3"
-        column_key: "list_3"
+        ToDoColumn:
+            column_title: "To Do List 2"
+            column_key: "list_2"
+
+        ToDoColumn:
+            column_title: "To Do List 3"
+            column_key: "list_3"
 """
 
 

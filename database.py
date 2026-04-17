@@ -2,15 +2,6 @@ import sqlite3
 
 DB_NAME = "planner.db"
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    column_name TEXT NOT NULL,
-    done INTEGER DEFAULT 0,
-    updated_at TEXT NOT NULL
-)
-""")
 
 def get_connection():
     return sqlite3.connect(DB_NAME)
@@ -18,17 +9,16 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("DROP TABLE IF EXISTS tasks")
+    cur = conn.cursor()  # <-- THIS WAS MISSING
 
     cur.execute("""
-    CREATE TABLE tasks (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        column_name TEXT NOT NULL,
-        done INTEGER DEFAULT 0
-    )
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            column_name TEXT,
+            done INTEGER,
+            updated_at TEXT
+        )
     """)
 
     conn.commit()
