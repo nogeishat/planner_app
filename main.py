@@ -90,14 +90,6 @@ class ToDoColumn(BoxLayout):
     column_key = StringProperty("")
     tasks_text = StringProperty("No tasks yet.")
 
-    def sync(self):
-    push_to_supabase()
-    pull_from_supabase()
-
-    for child in self.root.children:
-        if hasattr(child, "refresh_tasks"):
-            child.refresh_tasks()
-
     def on_kv_post(self, base_widget):
         self.refresh_tasks()
 
@@ -152,6 +144,15 @@ class PlannerRoot(BoxLayout):
 
 
 class PlannerApp(App):
+    def sync(self):
+        push_to_supabase()
+        pull_from_supabase()
+
+        if self.root:
+            for child in self.root.children:
+                if hasattr(child, "refresh_tasks"):
+                    child.refresh_tasks()
+
     def build(self):
         init_db()
         Builder.load_string(KV)
