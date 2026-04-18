@@ -23,23 +23,19 @@ KV = """
             pos: self.pos
             size: self.size
 
-    ScrollView:
-        do_scroll_x: False
-
-        Label:
-            id: task_output
-            text: root.tasks_text
-            markup: False
-            size_hint_y: None
-            text_size: self.width, None
-            halign: "left"
-            valign: "top"
-            height: self.texture_size[1]
+    Label:
+        id: task_output
+        text: root.tasks_text
+        markup: False
+        size_hint_y: None
+        text_size: self.width, None
+        halign: "left"
+        valign: "top"
+        height: self.texture_size[1]
 
     Button:
         text: ""
-        size_hint_y: None
-        height: 32
+        size_hint_y: 1
         background_normal: ""
         background_down: ""
         background_color: [0, 0, 0, 0]
@@ -106,6 +102,12 @@ BoxLayout:
     orientation: "vertical"
     spacing: 10
     padding: 12
+    canvas.before:
+        Color:
+            rgba: app.current_column.bg_color if app.current_column else [0.15, 0.15, 0.18, 1]
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
     TextInput:
         id: popup_task_input
@@ -123,10 +125,12 @@ BoxLayout:
         )
 
         self._active_popup = Popup(
-            title="Add Task",
+            title="",
             content=popup_content,
-            size_hint=(0.8, 0.35),
+            size_hint=(1, 1),
             auto_dismiss=True,
+            separator_height=0,
+            background="",
         )
         app = App.get_running_app()
         app.current_column = self
