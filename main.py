@@ -236,7 +236,9 @@ class ToDoColumn(BoxLayout):
         conn.commit()
         conn.close()
 
-        self.refresh_tasks()
+        app = App.get_running_app()
+        if app:
+            app.refresh_all_columns()
 
     def open_add_task_page(self):
         app = App.get_running_app()
@@ -368,8 +370,9 @@ class TaskRow(BoxLayout):
         cur.execute("DELETE FROM tasks WHERE id = ?", (self.task_id,))
         conn.commit()
         conn.close()
-        if self.column:
-            self.column.refresh_tasks()
+        app = App.get_running_app()
+        if app:
+            app.refresh_all_columns()
 
 
 class PlannerRoot(BoxLayout):
