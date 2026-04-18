@@ -38,6 +38,11 @@ KV = """
         on_active: root.toggle_done(self.active)
         canvas.before:
             Color:
+                rgba: root.column.bg_color if root.column else [0, 0, 0, 0]
+            Rectangle:
+                pos: self.pos
+                size: self.size
+            Color:
                 rgba: [1, 1, 1, 1]
             Line:
                 width: 1.3
