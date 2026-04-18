@@ -26,9 +26,13 @@ KV = """
             pos: self.pos
             size: self.size
 
+    Widget:
+        size_hint_x: None
+        width: 16 if root.is_subtask else 0
+
     ToggleButton:
         size_hint: None, None
-        size: 24, 24
+        size: (18, 18) if root.is_subtask else (24, 24)
         state: "down" if root.done else "normal"
         pos_hint: {"center_y": 0.5}
         text: ""
@@ -38,7 +42,7 @@ KV = """
         on_state: root.toggle_done(self.state == "down")
         canvas.before:
             Color:
-                rgba: [1, 1, 1, 1]
+                rgba: [1, 1, 1, 0] if root.is_subtask else [1, 1, 1, 1]
             Line:
                 width: 1.3
                 rectangle: self.x, self.y, self.width, self.height
@@ -46,7 +50,7 @@ KV = """
     Label:
         text: root.display_text
         markup: True
-        font_size: "20sp"
+        font_size: "16sp" if root.is_subtask else "20sp"
         font_name: "Roboto"
         text_size: self.width, None
         halign: "left"
@@ -82,7 +86,7 @@ KV = """
     Label:
         size_hint_y: None
         height: 28
-        text: f"[b]{root.title}[/b]" if root.title else ""
+        text: ""
         markup: True
         color: [1, 1, 1, 1]
         font_size: "16sp"
@@ -212,27 +216,49 @@ class ToDoColumn(BoxLayout):
     def on_kv_post(self, base_widget):
         self.refresh_tasks()
 
-    def add_task(self, text):
+    def add_task(self, text, category="", due_date="", subtasks_text=""):
         text = text.strip()
         if not text:
             return
+        category = category.strip()
+        due_date = due_date.strip()
+        subtasks = [line.strip() for line in subtasks_text.splitlines() if line.strip()]
 
         conn = get_connection()
         cur = conn.cursor()
 
         from datetime import datetime
+        main_task_id = str(uuid4())
 
         cur.execute(
-            "INSERT INTO tasks (id, title, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                str(uuid4()),
+                main_task_id,
                 text,
+                category if category else None,
+                due_date if due_date else None,
+                None,
                 self.column_key,
                 0,
                 1 if self.filter_mode == "today" else 0,
                 datetime.utcnow().isoformat()
             )
         )
+        for subtask in subtasks:
+            cur.execute(
+                "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(uuid4()),
+                    subtask,
+                    None,
+                    None,
+                    main_task_id,
+                    self.column_key,
+                    0,
+                    1 if self.filter_mode == "today" else 0,
+                    datetime.utcnow().isoformat()
+                )
+            )
 
         conn.commit()
         conn.close()
@@ -258,18 +284,48 @@ BoxLayout:
             pos: self.pos
             size: self.size
 
-    TextInput:
-        id: popup_task_input
-        hint_text: "Add task"
-        multiline: False
+    BoxLayout:
+        orientation: "vertical"
         size_hint_y: None
-        height: 40
+        height: self.minimum_height
+        spacing: 10
 
-    Button:
-        text: "Add task"
-        size_hint_y: None
-        height: 40
-        on_press: app.submit_popup_task(root.ids.popup_task_input.text)
+        TextInput:
+            id: popup_task_input
+            hint_text: "Add task"
+            multiline: False
+            size_hint_y: None
+            height: 40
+
+        Spinner:
+            id: popup_category
+            text: "No category"
+            values: ("No category", "Work", "Personal", "Errand", "Study")
+            size_hint_y: None
+            height: 40
+
+        TextInput:
+            id: popup_due_date
+            hint_text: "Due date (optional, YYYY-MM-DD)"
+            multiline: False
+            size_hint_y: None
+            height: 40
+
+        TextInput:
+            id: popup_subtasks
+            hint_text: "Subtasks (optional, one per line)"
+            multiline: True
+            size_hint_y: None
+            height: 110
+
+        Button:
+            text: "Add task"
+            size_hint_y: None
+            height: 40
+            on_press: app.submit_popup_task(root.ids.popup_task_input.text, root.ids.popup_category.text, root.ids.popup_due_date.text, root.ids.popup_subtasks.text)
+
+    Widget:
+        size_hint_y: 1
 """
         )
 
@@ -289,13 +345,21 @@ BoxLayout:
         cur = conn.cursor()
 
         if self.filter_mode == "today":
-            rows = cur.execute(
-                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 ORDER BY rowid DESC",
+            parent_rows = cur.execute(
+                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NULL ORDER BY rowid DESC",
+                (self.column_key,)
+            ).fetchall()
+            sub_rows = cur.execute(
+                "SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NOT NULL ORDER BY rowid ASC",
                 (self.column_key,)
             ).fetchall()
         else:
-            rows = cur.execute(
-                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+            parent_rows = cur.execute(
+                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NULL ORDER BY rowid DESC",
+                (self.column_key,)
+            ).fetchall()
+            sub_rows = cur.execute(
+                "SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NOT NULL ORDER BY rowid ASC",
                 (self.column_key,)
             ).fetchall()
 
@@ -303,25 +367,47 @@ BoxLayout:
         tasks_box = self.ids.tasks_box
         tasks_box.clear_widgets()
 
-        if not rows:
+        subtasks_by_parent = {}
+        for task_id, title, parent_id, done, in_today in sub_rows:
+            subtasks_by_parent.setdefault(parent_id, []).append(
+                (task_id, title, done, in_today)
+            )
+
+        if not parent_rows:
             tasks_box.add_widget(TaskRow.empty_state())
         else:
-            for task_id, title, done, in_today in rows:
+            for task_id, title, category, due_date, done, in_today in parent_rows:
                 tasks_box.add_widget(
                     TaskRow(
                         column=self,
                         task_id=task_id,
                         title=title,
+                        category=category or "",
+                        due_date=due_date or "",
                         done=bool(done) if self.toggle_mode == "done" else bool(in_today),
                         toggle_mode=self.toggle_mode,
                     )
                 )
+                for subtask_id, subtask_title, subtask_done, subtask_in_today in subtasks_by_parent.get(task_id, []):
+                    tasks_box.add_widget(
+                        TaskRow(
+                            column=self,
+                            task_id=subtask_id,
+                            title=subtask_title,
+                            done=bool(subtask_done) if self.toggle_mode == "done" else bool(subtask_in_today),
+                            toggle_mode=self.toggle_mode,
+                            is_subtask=True,
+                        )
+                    )
 
 
 class TaskRow(BoxLayout):
     task_id = StringProperty("")
     title = StringProperty("")
+    category = StringProperty("")
+    due_date = StringProperty("")
     done = BooleanProperty(False)
+    is_subtask = BooleanProperty(False)
     toggle_mode = StringProperty("standard")
     hovered = BooleanProperty(False)
 
@@ -340,7 +426,13 @@ class TaskRow(BoxLayout):
     def display_text(self):
         if self.title == "No tasks yet.":
             return f"[b]{self.title}[/b]"
-        return f"[b]{self.title}[/b]"
+        details = []
+        if self.category:
+            details.append(self.category)
+        if self.due_date:
+            details.append(self.due_date)
+        suffix = f" [size=14sp]({' | '.join(details)})[/size]" if details else ""
+        return f"[b]{self.title}[/b]{suffix}"
 
     def _on_mouse_pos(self, _, pos):
         if not self.get_root_window():
@@ -368,7 +460,7 @@ class TaskRow(BoxLayout):
             return
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM tasks WHERE id = ?", (self.task_id,))
+        cur.execute("DELETE FROM tasks WHERE id = ? OR parent_id = ?", (self.task_id, self.task_id))
         conn.commit()
         conn.close()
         app = App.get_running_app()
@@ -409,11 +501,12 @@ class PlannerApp(App):
         Builder.load_string(KV)
         return PlannerRoot()
 
-    def submit_popup_task(self, text):
+    def submit_popup_task(self, text, category, due_date, subtasks_text):
         if not self.current_column:
             return
 
-        self.current_column.add_task(text)
+        normalized_category = "" if category == "No category" else category
+        self.current_column.add_task(text, normalized_category, due_date, subtasks_text)
         if self.current_popup:
             self.current_popup.dismiss()
             self.current_popup = None
