@@ -26,9 +26,13 @@ KV = """
             pos: self.pos
             size: self.size
 
+    Widget:
+        size_hint_x: None
+        width: 16 if root.is_subtask else 0
+
     ToggleButton:
         size_hint: None, None
-        size: 24, 24
+        size: (18, 18) if root.is_subtask else (24, 24)
         state: "down" if root.done else "normal"
         pos_hint: {"center_y": 0.5}
         text: ""
@@ -40,7 +44,7 @@ KV = """
             Color:
                 rgba: [1, 1, 1, 1]
             Line:
-                width: 1.3
+                width: 0 if root.is_subtask else 1.3
                 rectangle: self.x, self.y, self.width, self.height
 
     Label:
@@ -389,7 +393,7 @@ BoxLayout:
                         TaskRow(
                             column=self,
                             task_id=subtask_id,
-                            title=f"  ↳ {subtask_title}",
+                            title=subtask_title,
                             done=bool(subtask_done) if self.toggle_mode == "done" else bool(subtask_in_today),
                             toggle_mode=self.toggle_mode,
                             is_subtask=True,
