@@ -2,9 +2,8 @@ from uuid import uuid4
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, ListProperty
 from kivy.uix.boxlayout import BoxLayout
-from sync import push_to_supabase, pull_from_supabase
 
 from database import init_db, get_connection
 
@@ -18,18 +17,10 @@ KV = """
 
     canvas.before:
         Color:
-            rgba: 0.15, 0.15, 0.18, 1
-        RoundedRectangle:
+            rgba: root.bg_color
+        Rectangle:
             pos: self.pos
             size: self.size
-            radius: [12]
-
-    Label:
-        text: root.column_title
-        size_hint_y: None
-        height: 35
-        bold: True
-        font_size: 20
 
     TextInput:
         id: task_input
@@ -51,6 +42,7 @@ KV = """
         Label:
             id: task_output
             text: root.tasks_text
+            markup: False
             size_hint_y: None
             text_size: self.width, None
             halign: "left"
@@ -58,39 +50,28 @@ KV = """
             height: self.texture_size[1]
 
 <PlannerRoot>:
-    orientation: "vertical"
+    orientation: "horizontal"
+    spacing: 0
+    padding: 0
 
-    BoxLayout:
-        size_hint_y: None
-        height: 50
+    ToDoColumn:
+        column_key: "list_1"
+        bg_color: [243/255, 154/255, 39/255, 1]
 
-        Button:
-            text: "Sync"
-            on_press: app.sync()
+    ToDoColumn:
+        column_key: "list_2"
+        bg_color: [151/255, 110/255, 215/255, 1]
 
-    BoxLayout:
-        orientation: "horizontal"
-        spacing: 12
-        padding: 12
-
-        ToDoColumn:
-            column_title: "To Do List 1"
-            column_key: "list_1"
-
-        ToDoColumn:
-            column_title: "To Do List 2"
-            column_key: "list_2"
-
-        ToDoColumn:
-            column_title: "To Do List 3"
-            column_key: "list_3"
+    ToDoColumn:
+        column_key: "list_3"
+        bg_color: [194/255, 59/255, 35/255, 1]
 """
 
 
 class ToDoColumn(BoxLayout):
-    column_title = StringProperty("")
     column_key = StringProperty("")
     tasks_text = StringProperty("No tasks yet.")
+    bg_color = ListProperty([0.15, 0.15, 0.18, 1])
 
     def on_kv_post(self, base_widget):
         self.refresh_tasks()
@@ -136,7 +117,7 @@ class ToDoColumn(BoxLayout):
         if not rows:
             self.tasks_text = "No tasks yet."
         else:
-            self.tasks_text = "\\n".join(
+            self.tasks_text = "\n".join(
                 f"[{'x' if row[1] else ' '}] {row[0]}" for row in rows
             )
 
@@ -146,15 +127,6 @@ class PlannerRoot(BoxLayout):
 
 
 class PlannerApp(App):
-    def sync(self):
-        push_to_supabase()
-        pull_from_supabase()
-
-        if self.root:
-            for child in self.root.children:
-                if hasattr(child, "refresh_tasks"):
-                    child.refresh_tasks()
-
     def build(self):
         init_db()
         Builder.load_string(KV)
