@@ -29,7 +29,10 @@ KV = """
         size_hint: None, None
         size: 24, 24
         active: root.done
-        color: [1, 1, 1, 1]
+        background_checkbox_normal: ""
+        background_checkbox_down: ""
+        background_checkbox_disabled_normal: ""
+        background_checkbox_disabled_down: ""
         pos_hint: {"center_y": 0.5}
         on_active: root.toggle_done(self.active)
         canvas.before:
@@ -38,6 +41,18 @@ KV = """
             Line:
                 width: 1.3
                 rectangle: self.x, self.y, self.width, self.height
+        canvas.after:
+            Color:
+                rgba: [1, 1, 1, 1] if self.active else [1, 1, 1, 0]
+            Line:
+                width: 2
+                cap: "round"
+                joint: "round"
+                points: [
+                self.x + self.width * 0.2, self.y + self.height * 0.55,
+                self.x + self.width * 0.42, self.y + self.height * 0.3,
+                self.x + self.width * 0.8, self.y + self.height * 0.7
+                ]
 
     Label:
         text: root.display_text
