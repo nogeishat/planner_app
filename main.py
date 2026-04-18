@@ -42,7 +42,7 @@ KV = """
         on_state: root.toggle_done(self.state == "down")
         canvas.before:
             Color:
-                rgba: [1, 1, 1, 1] if not root.is_subtask else [0, 0, 0, 0]
+                rgba: [33/255, 33/255, 33/255, 1] if not root.is_subtask else [0, 0, 0, 0]
             Line:
                 width: 1.3
                 rectangle: self.x, self.y, self.width, self.height
@@ -129,7 +129,7 @@ KV = """
             text: "Today"
             background_normal: ""
             background_down: ""
-            background_color: [1, 1, 1, 0.14] if root.current_view == "today" else [0, 0, 0, 0]
+            background_color: [24/255, 24/255, 24/255, 1] if root.current_view == "today" else [33/255, 33/255, 33/255, 1]
             color: [1, 1, 1, 1]
             font_size: "18sp"
             on_press: root.show_today()
@@ -138,7 +138,7 @@ KV = """
             text: "All"
             background_normal: ""
             background_down: ""
-            background_color: [1, 1, 1, 0.14] if root.current_view == "all" else [0, 0, 0, 0]
+            background_color: [24/255, 24/255, 24/255, 1] if root.current_view == "all" else [33/255, 33/255, 33/255, 1]
             color: [1, 1, 1, 1]
             font_size: "18sp"
             on_press: root.show_all()
@@ -412,8 +412,8 @@ class TaskRow(BoxLayout):
     hovered = BooleanProperty(False)
 
     def __init__(self, column=None, **kwargs):
-        super().__init__(**kwargs)
         self.column = column
+        super().__init__(**kwargs)
         Window.bind(mouse_pos=self._on_mouse_pos)
 
     @staticmethod
@@ -432,7 +432,10 @@ class TaskRow(BoxLayout):
         if self.due_date:
             details.append(self.due_date)
         suffix = f" [size=14sp]({' | '.join(details)})[/size]" if details else ""
-        return f"[b]{self.title}[/b]{suffix}"
+        text = f"[b]{self.title}[/b]{suffix}"
+        if self.done and self.column and self.column.filter_mode == "today":
+            return f"[color=#212121][s]{text}[/s][/color]"
+        return text
 
     def _on_mouse_pos(self, _, pos):
         if not self.get_root_window():
