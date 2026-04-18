@@ -89,8 +89,8 @@ KV = """
         height: 32
         spacing: 6
         padding: [8, 0, 8, 0]
-        opacity: 1 if root.show_weekday_navigation else 0
-        disabled: not root.show_weekday_navigation
+        opacity: 1 if (root.column_key == "list_1" and root.filter_mode == "all") else 0
+        disabled: not (root.column_key == "list_1" and root.filter_mode == "all")
 
         Button:
             text: "<"
@@ -103,7 +103,7 @@ KV = """
             on_press: root.change_weekday(-1)
 
         Label:
-            text: root.weekday_title
+            text: "[b]" + root.WEEKDAYS[root.selected_weekday] + "[/b]"
             markup: True
             color: [1, 1, 1, 1]
             font_size: "16sp"
@@ -251,14 +251,6 @@ class ToDoColumn(BoxLayout):
     @property
     def is_weekly_column(self):
         return self.column_key == "list_1"
-
-    @property
-    def show_weekday_navigation(self):
-        return self.is_weekly_column and self.filter_mode == "all"
-
-    @property
-    def weekday_title(self):
-        return f"[b]{self.WEEKDAYS[self.selected_weekday]}[/b]"
 
     def get_active_weekday(self):
         if not self.is_weekly_column:
