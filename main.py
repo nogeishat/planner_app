@@ -378,12 +378,24 @@ class TaskRow(BoxLayout):
 class PlannerRoot(BoxLayout):
     current_view = StringProperty("today")
 
+    def on_kv_post(self, base_widget):
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("today")
+            app.refresh_columns_for_view("all")
+
     def show_today(self):
         self.current_view = "today"
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("today")
         self.ids.view_manager.current = "today"
 
     def show_all(self):
         self.current_view = "all"
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("all")
         self.ids.view_manager.current = "all"
 
 
@@ -410,6 +422,13 @@ class PlannerApp(App):
             return
         for widget in self.root.walk():
             if isinstance(widget, ToDoColumn):
+                widget.refresh_tasks()
+
+    def refresh_columns_for_view(self, view_name):
+        if not self.root:
+            return
+        for widget in self.root.walk():
+            if isinstance(widget, ToDoColumn) and widget.filter_mode == view_name:
                 widget.refresh_tasks()
 
 
