@@ -42,9 +42,9 @@ KV = """
         on_state: root.toggle_done(self.state == "down")
         canvas.before:
             Color:
-                rgba: [1, 1, 1, 1]
+                rgba: [1, 1, 1, 0] if root.is_subtask else [1, 1, 1, 1]
             Line:
-                width: 0 if root.is_subtask else 1.3
+                width: 1.3
                 rectangle: self.x, self.y, self.width, self.height
 
     Label:
