@@ -25,13 +25,16 @@ KV = """
             pos: self.pos
             size: self.size
 
-    CheckBox:
+    ToggleButton:
         size_hint: None, None
         size: 24, 24
-        active: root.done
-        color: [1, 1, 1, 1]
+        state: "down" if root.done else "normal"
         pos_hint: {"center_y": 0.5}
-        on_active: root.toggle_done(self.active)
+        text: ""
+        background_normal: ""
+        background_down: ""
+        background_color: [1, 1, 1, 1] if self.state == "down" else [0, 0, 0, 0]
+        on_state: root.toggle_done(self.state == "down")
         canvas.before:
             Color:
                 rgba: [1, 1, 1, 1]
