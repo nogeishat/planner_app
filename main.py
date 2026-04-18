@@ -2,7 +2,8 @@ from uuid import uuid4
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.properties import StringProperty, ListProperty
+from kivy.core.window import Window
+from kivy.properties import StringProperty, ListProperty, BooleanProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 
@@ -10,6 +11,47 @@ from database import init_db, get_connection
 
 
 KV = """
+<TaskRow>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: 44
+    spacing: 8
+    padding: [8, 4, 8, 4]
+
+    canvas.before:
+        Color:
+            rgba: [1, 1, 1, 0.08] if root.hovered else [0, 0, 0, 0]
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    CheckBox:
+        size_hint: None, None
+        size: 24, 24
+        active: root.done
+        on_active: root.toggle_done(self.active)
+
+    Label:
+        text: root.display_text
+        markup: True
+        font_size: "20sp"
+        font_name: "Roboto"
+        text_size: self.width, None
+        halign: "left"
+        valign: "middle"
+
+    Button:
+        text: "X"
+        size_hint_x: None
+        width: 32
+        opacity: 1 if root.hovered else 0
+        disabled: not root.hovered
+        background_normal: ""
+        background_down: ""
+        background_color: [0.85, 0.2, 0.2, 1]
+        color: [1, 1, 1, 1]
+        on_press: root.delete_task()
+
 <ToDoColumn>:
     orientation: "vertical"
     spacing: 8
@@ -23,15 +65,12 @@ KV = """
             pos: self.pos
             size: self.size
 
-    Label:
-        id: task_output
-        text: root.tasks_text
-        markup: False
+    BoxLayout:
+        id: tasks_box
+        orientation: "vertical"
+        spacing: 2
         size_hint_y: None
-        text_size: self.width, None
-        halign: "left"
-        valign: "top"
-        height: self.texture_size[1]
+        height: self.minimum_height
 
     Button:
         text: ""
@@ -63,7 +102,6 @@ KV = """
 
 class ToDoColumn(BoxLayout):
     column_key = StringProperty("")
-    tasks_text = StringProperty("No tasks yet.")
     bg_color = ListProperty([0.15, 0.15, 0.18, 1])
 
     def on_kv_post(self, base_widget):
@@ -143,18 +181,76 @@ BoxLayout:
         cur = conn.cursor()
 
         rows = cur.execute(
-            "SELECT title, done FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+            "SELECT id, title, done FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
             (self.column_key,)
         ).fetchall()
 
         conn.close()
+        tasks_box = self.ids.tasks_box
+        tasks_box.clear_widgets()
 
         if not rows:
-            self.tasks_text = "No tasks yet."
+            tasks_box.add_widget(TaskRow.empty_state())
         else:
-            self.tasks_text = "\n".join(
-                f"[{'x' if row[1] else ' '}] {row[0]}" for row in rows
-            )
+            for task_id, title, done in rows:
+                tasks_box.add_widget(
+                    TaskRow(
+                        column=self,
+                        task_id=task_id,
+                        title=title,
+                        done=bool(done),
+                    )
+                )
+
+
+class TaskRow(BoxLayout):
+    task_id = StringProperty("")
+    title = StringProperty("")
+    done = BooleanProperty(False)
+    hovered = BooleanProperty(False)
+
+    def __init__(self, column=None, **kwargs):
+        super().__init__(**kwargs)
+        self.column = column
+        Window.bind(mouse_pos=self._on_mouse_pos)
+
+    @staticmethod
+    def empty_state():
+        row = TaskRow(title="No tasks yet.", done=False)
+        row.disabled = True
+        return row
+
+    @property
+    def display_text(self):
+        if self.title == "No tasks yet.":
+            return f"[b]{self.title}[/b]"
+        return f"[b]{self.title}[/b]"
+
+    def _on_mouse_pos(self, _, pos):
+        if not self.get_root_window():
+            return
+        self.hovered = self.collide_point(*self.to_widget(*pos))
+
+    def toggle_done(self, value):
+        if not self.task_id:
+            return
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if value else 0, self.task_id))
+        conn.commit()
+        conn.close()
+        self.done = value
+
+    def delete_task(self):
+        if not self.task_id:
+            return
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM tasks WHERE id = ?", (self.task_id,))
+        conn.commit()
+        conn.close()
+        if self.column:
+            self.column.refresh_tasks()
 
 
 class PlannerRoot(BoxLayout):
