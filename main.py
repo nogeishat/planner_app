@@ -26,12 +26,10 @@ KV = """
             size: self.size
 
     ToggleButton:
-        text: "✓" if self.state == "down" else ""
+        text: ""
         size_hint: None, None
         size: 24, 24
         state: "down" if root.done else "normal"
-        font_size: "16sp"
-        color: [1, 1, 1, 1]
         background_normal: ""
         background_down: ""
         background_color: [0, 0, 0, 0]
@@ -43,6 +41,15 @@ KV = """
             Line:
                 width: 1.3
                 rectangle: self.x, self.y, self.width, self.height
+        canvas.after:
+            Color:
+                rgba: [1, 1, 1, 1 if self.state == "down" else 0]
+            Line:
+                width: 2
+                points: [self.x + self.width * 0.2, self.y + self.height * 0.5, self.x + self.width * 0.45, self.y + self.height * 0.25]
+            Line:
+                width: 2
+                points: [self.x + self.width * 0.45, self.y + self.height * 0.25, self.x + self.width * 0.8, self.y + self.height * 0.75]
 
     Label:
         text: root.display_text
@@ -54,7 +61,9 @@ KV = """
         valign: "middle"
 
     Button:
-        text: "X"
+        text: "[b]X[/b]"
+        markup: True
+        font_size: "20sp"
         size_hint_x: None
         width: 20
         opacity: 1 if root.hovered else 0
