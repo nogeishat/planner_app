@@ -25,11 +25,24 @@ KV = """
             pos: self.pos
             size: self.size
 
-    CheckBox:
+    ToggleButton:
+        text: "✓" if self.state == "down" else ""
         size_hint: None, None
         size: 24, 24
-        active: root.done
-        on_active: root.toggle_done(self.active)
+        state: "down" if root.done else "normal"
+        font_size: "16sp"
+        color: [1, 1, 1, 1]
+        background_normal: ""
+        background_down: ""
+        background_color: [0, 0, 0, 0]
+        pos_hint: {"center_y": 0.5}
+        on_state: root.toggle_done(self.state == "down")
+        canvas.before:
+            Color:
+                rgba: [1, 1, 1, 1]
+            Line:
+                width: 1.3
+                rectangle: self.x, self.y, self.width, self.height
 
     Label:
         text: root.display_text
@@ -43,13 +56,13 @@ KV = """
     Button:
         text: "X"
         size_hint_x: None
-        width: 32
+        width: 20
         opacity: 1 if root.hovered else 0
         disabled: not root.hovered
         background_normal: ""
         background_down: ""
-        background_color: [0.85, 0.2, 0.2, 1]
-        color: [1, 1, 1, 1]
+        background_color: [0, 0, 0, 0]
+        color: [0.9, 0.15, 0.15, 1]
         on_press: root.delete_task()
 
 <ToDoColumn>:
