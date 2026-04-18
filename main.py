@@ -82,7 +82,7 @@ KV = """
     Label:
         size_hint_y: None
         height: 28
-        text: f"[b]{root.title}[/b]" if root.title else ""
+        text: ""
         markup: True
         color: [1, 1, 1, 1]
         font_size: "16sp"
@@ -373,9 +373,9 @@ class TaskRow(BoxLayout):
             return f"[b]{self.title}[/b]"
         details = []
         if self.category:
-            details.append(f"Category: {self.category}")
+            details.append(self.category)
         if self.due_date:
-            details.append(f"Due: {self.due_date}")
+            details.append(self.due_date)
         suffix = f" [size=14sp]({' | '.join(details)})[/size]" if details else ""
         return f"[b]{self.title}[/b]{suffix}"
 
