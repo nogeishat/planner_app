@@ -48,11 +48,7 @@ KV = """
                 width: 2
                 cap: "round"
                 joint: "round"
-                points: [
-                self.x + self.width * 0.2, self.y + self.height * 0.55,
-                self.x + self.width * 0.42, self.y + self.height * 0.3,
-                self.x + self.width * 0.8, self.y + self.height * 0.7
-                ]
+                points: self.x + self.width * 0.2, self.y + self.height * 0.55, self.x + self.width * 0.42, self.y + self.height * 0.3, self.x + self.width * 0.8, self.y + self.height * 0.7
 
     Label:
         text: root.display_text
