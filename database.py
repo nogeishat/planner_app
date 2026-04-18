@@ -17,6 +17,7 @@ def init_db():
             title TEXT,
             category TEXT,
             due_date TEXT,
+            parent_id TEXT,
             column_name TEXT,
             done INTEGER,
             in_today INTEGER DEFAULT 0,
@@ -31,6 +32,8 @@ def init_db():
         cur.execute("ALTER TABLE tasks ADD COLUMN category TEXT")
     if "due_date" not in columns:
         cur.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")
+    if "parent_id" not in columns:
+        cur.execute("ALTER TABLE tasks ADD COLUMN parent_id TEXT")
 
     conn.commit()
     conn.close()
