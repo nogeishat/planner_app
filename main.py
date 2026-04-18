@@ -9,7 +9,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 
-from database import init_db, get_connection
+from database import init_db, get_connection, clear_completed_tasks_on_startup
 
 
 KV = """
@@ -568,6 +568,7 @@ class PlannerApp(App):
 
     def build(self):
         init_db()
+        clear_completed_tasks_on_startup()
         Builder.load_string(KV)
         return PlannerRoot()
 
