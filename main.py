@@ -212,10 +212,12 @@ class ToDoColumn(BoxLayout):
     def on_kv_post(self, base_widget):
         self.refresh_tasks()
 
-    def add_task(self, text):
+    def add_task(self, text, category="", due_date=""):
         text = text.strip()
         if not text:
             return
+        category = category.strip()
+        due_date = due_date.strip()
 
         conn = get_connection()
         cur = conn.cursor()
@@ -223,10 +225,12 @@ class ToDoColumn(BoxLayout):
         from datetime import datetime
 
         cur.execute(
-            "INSERT INTO tasks (id, title, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, category, due_date, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 str(uuid4()),
                 text,
+                category if category else None,
+                due_date if due_date else None,
                 self.column_key,
                 0,
                 1 if self.filter_mode == "today" else 0,
@@ -258,18 +262,41 @@ BoxLayout:
             pos: self.pos
             size: self.size
 
-    TextInput:
-        id: popup_task_input
-        hint_text: "Add task"
-        multiline: False
+    BoxLayout:
+        orientation: "vertical"
         size_hint_y: None
-        height: 40
+        height: self.minimum_height
+        spacing: 10
 
-    Button:
-        text: "Add task"
-        size_hint_y: None
-        height: 40
-        on_press: app.submit_popup_task(root.ids.popup_task_input.text)
+        TextInput:
+            id: popup_task_input
+            hint_text: "Add task"
+            multiline: False
+            size_hint_y: None
+            height: 40
+
+        Spinner:
+            id: popup_category
+            text: "No category"
+            values: ("No category", "Work", "Personal", "Errand", "Study")
+            size_hint_y: None
+            height: 40
+
+        TextInput:
+            id: popup_due_date
+            hint_text: "Due date (optional, YYYY-MM-DD)"
+            multiline: False
+            size_hint_y: None
+            height: 40
+
+        Button:
+            text: "Add task"
+            size_hint_y: None
+            height: 40
+            on_press: app.submit_popup_task(root.ids.popup_task_input.text, root.ids.popup_category.text, root.ids.popup_due_date.text)
+
+    Widget:
+        size_hint_y: 1
 """
         )
 
@@ -290,12 +317,12 @@ BoxLayout:
 
         if self.filter_mode == "today":
             rows = cur.execute(
-                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 ORDER BY rowid DESC",
+                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 ORDER BY rowid DESC",
                 (self.column_key,)
             ).fetchall()
         else:
             rows = cur.execute(
-                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
                 (self.column_key,)
             ).fetchall()
 
@@ -306,12 +333,14 @@ BoxLayout:
         if not rows:
             tasks_box.add_widget(TaskRow.empty_state())
         else:
-            for task_id, title, done, in_today in rows:
+            for task_id, title, category, due_date, done, in_today in rows:
                 tasks_box.add_widget(
                     TaskRow(
                         column=self,
                         task_id=task_id,
                         title=title,
+                        category=category or "",
+                        due_date=due_date or "",
                         done=bool(done) if self.toggle_mode == "done" else bool(in_today),
                         toggle_mode=self.toggle_mode,
                     )
@@ -321,6 +350,8 @@ BoxLayout:
 class TaskRow(BoxLayout):
     task_id = StringProperty("")
     title = StringProperty("")
+    category = StringProperty("")
+    due_date = StringProperty("")
     done = BooleanProperty(False)
     toggle_mode = StringProperty("standard")
     hovered = BooleanProperty(False)
@@ -340,7 +371,13 @@ class TaskRow(BoxLayout):
     def display_text(self):
         if self.title == "No tasks yet.":
             return f"[b]{self.title}[/b]"
-        return f"[b]{self.title}[/b]"
+        details = []
+        if self.category:
+            details.append(f"Category: {self.category}")
+        if self.due_date:
+            details.append(f"Due: {self.due_date}")
+        suffix = f" [size=14sp]({' | '.join(details)})[/size]" if details else ""
+        return f"[b]{self.title}[/b]{suffix}"
 
     def _on_mouse_pos(self, _, pos):
         if not self.get_root_window():
@@ -409,11 +446,12 @@ class PlannerApp(App):
         Builder.load_string(KV)
         return PlannerRoot()
 
-    def submit_popup_task(self, text):
+    def submit_popup_task(self, text, category, due_date):
         if not self.current_column:
             return
 
-        self.current_column.add_task(text)
+        normalized_category = "" if category == "No category" else category
+        self.current_column.add_task(text, normalized_category, due_date)
         if self.current_popup:
             self.current_popup.dismiss()
             self.current_popup = None
