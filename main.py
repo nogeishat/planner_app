@@ -108,6 +108,13 @@ KV = """
     spacing: 0
     padding: 0
 
+    canvas.before:
+        Color:
+            rgba: [0, 0, 0, 1]
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
     BoxLayout:
         size_hint_y: None
         height: 48
@@ -155,21 +162,21 @@ KV = """
                     column_key: "list_1"
                     filter_mode: "today"
                     toggle_mode: "done"
-                    bg_color: [243/255, 154/255, 39/255, 1]
+                    bg_color: [243/255, 154/255, 39/255, 0.5]
 
                 ToDoColumn:
                     title: "List 2"
                     column_key: "list_2"
                     filter_mode: "today"
                     toggle_mode: "done"
-                    bg_color: [151/255, 110/255, 215/255, 1]
+                    bg_color: [151/255, 110/255, 215/255, 0.5]
 
                 ToDoColumn:
                     title: "List 3"
                     column_key: "list_3"
                     filter_mode: "today"
                     toggle_mode: "done"
-                    bg_color: [194/255, 59/255, 35/255, 1]
+                    bg_color: [194/255, 59/255, 35/255, 0.5]
 
         Screen:
             name: "all"
@@ -184,21 +191,21 @@ KV = """
                     column_key: "list_1"
                     filter_mode: "all"
                     toggle_mode: "in_today"
-                    bg_color: [243/255, 154/255, 39/255, 1]
+                    bg_color: [243/255, 154/255, 39/255, 0.5]
 
                 ToDoColumn:
                     title: "List 2"
                     column_key: "list_2"
                     filter_mode: "all"
                     toggle_mode: "in_today"
-                    bg_color: [151/255, 110/255, 215/255, 1]
+                    bg_color: [151/255, 110/255, 215/255, 0.5]
 
                 ToDoColumn:
                     title: "List 3"
                     column_key: "list_3"
                     filter_mode: "all"
                     toggle_mode: "in_today"
-                    bg_color: [194/255, 59/255, 35/255, 1]
+                    bg_color: [194/255, 59/255, 35/255, 0.5]
 """
 
 
