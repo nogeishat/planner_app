@@ -29,6 +29,7 @@ KV = """
         size_hint: None, None
         size: 24, 24
         active: root.done
+        background_color: 0, 0, 0, 0
         background_checkbox_normal: ""
         background_checkbox_down: ""
         background_checkbox_disabled_normal: ""
