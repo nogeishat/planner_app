@@ -96,6 +96,9 @@ class ToDoColumn(BoxLayout):
         self.refresh_tasks()
 
     def open_add_task_page(self):
+        app = App.get_running_app()
+        app.current_column = self
+
         popup_content = Builder.load_string(
             """
 BoxLayout:
@@ -132,8 +135,6 @@ BoxLayout:
             separator_height=0,
             background="",
         )
-        app = App.get_running_app()
-        app.current_column = self
         app.current_popup = self._active_popup
         self._active_popup.open()
 
