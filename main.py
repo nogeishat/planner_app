@@ -96,8 +96,6 @@ KV = """
     Button:
         text: ""
         size_hint_y: 1
-        disabled: root.filter_mode != "column"
-        opacity: 1 if root.filter_mode == "column" else 0
         background_normal: ""
         background_down: ""
         background_color: [0, 0, 0, 0]
@@ -154,22 +152,22 @@ KV = """
                 ToDoColumn:
                     title: "List 1"
                     column_key: "list_1"
-                    filter_mode: "column"
-                    toggle_mode: "standard"
+                    filter_mode: "today"
+                    toggle_mode: "done"
                     bg_color: [243/255, 154/255, 39/255, 1]
 
                 ToDoColumn:
                     title: "List 2"
                     column_key: "list_2"
-                    filter_mode: "column"
-                    toggle_mode: "standard"
+                    filter_mode: "today"
+                    toggle_mode: "done"
                     bg_color: [151/255, 110/255, 215/255, 1]
 
                 ToDoColumn:
                     title: "List 3"
                     column_key: "list_3"
-                    filter_mode: "column"
-                    toggle_mode: "standard"
+                    filter_mode: "today"
+                    toggle_mode: "done"
                     bg_color: [194/255, 59/255, 35/255, 1]
 
         Screen:
@@ -181,24 +179,33 @@ KV = """
                 padding: 0
 
                 ToDoColumn:
-                    title: "Today's Tasks"
-                    filter_mode: "today"
-                    toggle_mode: "all_page"
+                    title: "List 1"
+                    column_key: "list_1"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
                     bg_color: [243/255, 154/255, 39/255, 1]
 
                 ToDoColumn:
-                    title: "All Other Tasks"
-                    filter_mode: "other"
-                    toggle_mode: "all_page"
+                    title: "List 2"
+                    column_key: "list_2"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
                     bg_color: [151/255, 110/255, 215/255, 1]
+
+                ToDoColumn:
+                    title: "List 3"
+                    column_key: "list_3"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
+                    bg_color: [194/255, 59/255, 35/255, 1]
 """
 
 
 class ToDoColumn(BoxLayout):
     title = StringProperty("")
     column_key = StringProperty("")
-    filter_mode = StringProperty("column")
-    toggle_mode = StringProperty("standard")
+    filter_mode = StringProperty("today")
+    toggle_mode = StringProperty("done")
     bg_color = ListProperty([0.15, 0.15, 0.18, 1])
 
     def on_kv_post(self, base_widget):
@@ -215,12 +222,13 @@ class ToDoColumn(BoxLayout):
         from datetime import datetime
 
         cur.execute(
-            "INSERT INTO tasks (id, title, column_name, done, updated_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 str(uuid4()),
                 text,
                 self.column_key,
                 0,
+                1 if self.filter_mode == "today" else 0,
                 datetime.utcnow().isoformat()
             )
         )
@@ -277,18 +285,15 @@ BoxLayout:
         conn = get_connection()
         cur = conn.cursor()
 
-        if self.filter_mode == "column":
+        if self.filter_mode == "today":
             rows = cur.execute(
-                "SELECT id, title, done FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 ORDER BY rowid DESC",
                 (self.column_key,)
-            ).fetchall()
-        elif self.filter_mode == "today":
-            rows = cur.execute(
-                "SELECT id, title, done FROM tasks WHERE done = 1 ORDER BY rowid DESC"
             ).fetchall()
         else:
             rows = cur.execute(
-                "SELECT id, title, done FROM tasks WHERE done = 0 ORDER BY rowid DESC"
+                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+                (self.column_key,)
             ).fetchall()
 
         conn.close()
@@ -298,13 +303,13 @@ BoxLayout:
         if not rows:
             tasks_box.add_widget(TaskRow.empty_state())
         else:
-            for task_id, title, done in rows:
+            for task_id, title, done, in_today in rows:
                 tasks_box.add_widget(
                     TaskRow(
                         column=self,
                         task_id=task_id,
                         title=title,
-                        done=bool(done),
+                        done=bool(done) if self.toggle_mode == "done" else bool(in_today),
                         toggle_mode=self.toggle_mode,
                     )
                 )
@@ -344,7 +349,10 @@ class TaskRow(BoxLayout):
             return
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if value else 0, self.task_id))
+        if self.toggle_mode == "in_today":
+            cur.execute("UPDATE tasks SET in_today = ? WHERE id = ?", (1 if value else 0, self.task_id))
+        else:
+            cur.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if value else 0, self.task_id))
         conn.commit()
         conn.close()
         self.done = value
