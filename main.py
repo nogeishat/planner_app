@@ -1,9 +1,10 @@
+from datetime import datetime
 from uuid import uuid4
 
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.core.window import Window
-from kivy.properties import StringProperty, ListProperty, BooleanProperty
+from kivy.properties import StringProperty, ListProperty, BooleanProperty, NumericProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
@@ -32,7 +33,9 @@ KV = """
 
     ToggleButton:
         size_hint: None, None
-        size: (18, 18) if root.is_subtask else (24, 24)
+        size: (0, 0) if root.hide_toggle else ((18, 18) if root.is_subtask else (24, 24))
+        opacity: 0 if root.hide_toggle else 1
+        disabled: root.hide_toggle
         state: "down" if root.done else "normal"
         pos_hint: {"center_y": 0.5}
         text: ""
@@ -83,13 +86,42 @@ KV = """
             pos: self.pos
             size: self.size
 
-    Label:
+    BoxLayout:
         size_hint_y: None
-        height: 28
-        text: ""
-        markup: True
-        color: [1, 1, 1, 1]
-        font_size: "16sp"
+        height: 32
+        spacing: 6
+        padding: [8, 0, 8, 0]
+        opacity: 1 if (root.column_key == "list_1" and root.filter_mode == "all") else 0
+        disabled: not (root.column_key == "list_1" and root.filter_mode == "all")
+
+        Button:
+            text: "<"
+            size_hint_x: None
+            width: 34
+            background_normal: ""
+            background_down: ""
+            background_color: [0, 0, 0, 0.2]
+            color: [1, 1, 1, 1]
+            on_press: root.change_weekday(-1)
+
+        Label:
+            text: "[b]" + root.WEEKDAYS[root.selected_weekday] + "[/b]"
+            markup: True
+            color: [1, 1, 1, 1]
+            font_size: "16sp"
+            halign: "center"
+            valign: "middle"
+            text_size: self.size
+
+        Button:
+            text: ">"
+            size_hint_x: None
+            width: 34
+            background_normal: ""
+            background_down: ""
+            background_color: [0, 0, 0, 0.2]
+            color: [1, 1, 1, 1]
+            on_press: root.change_weekday(1)
 
     BoxLayout:
         id: tasks_box
@@ -207,13 +239,30 @@ KV = """
 
 
 class ToDoColumn(BoxLayout):
+    WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     title = StringProperty("")
     column_key = StringProperty("")
     filter_mode = StringProperty("today")
     toggle_mode = StringProperty("done")
     bg_color = ListProperty([0.15, 0.15, 0.18, 1])
+    selected_weekday = NumericProperty(datetime.now().weekday())
 
     def on_kv_post(self, base_widget):
+        self.refresh_tasks()
+
+    @property
+    def is_weekly_column(self):
+        return self.column_key == "list_1"
+
+    def get_active_weekday(self):
+        if not self.is_weekly_column:
+            return None
+        if self.filter_mode == "today":
+            return datetime.now().weekday()
+        return self.selected_weekday
+
+    def change_weekday(self, delta):
+        self.selected_weekday = (self.selected_weekday + delta) % 7
         self.refresh_tasks()
 
     def add_task(self, text, category="", due_date="", subtasks_text=""):
@@ -227,11 +276,11 @@ class ToDoColumn(BoxLayout):
         conn = get_connection()
         cur = conn.cursor()
 
-        from datetime import datetime
         main_task_id = str(uuid4())
+        weekday = self.get_active_weekday()
 
         cur.execute(
-            "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, weekday, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 main_task_id,
                 text,
@@ -241,12 +290,13 @@ class ToDoColumn(BoxLayout):
                 self.column_key,
                 0,
                 1 if self.filter_mode == "today" else 0,
+                weekday,
                 datetime.utcnow().isoformat()
             )
         )
         for subtask in subtasks:
             cur.execute(
-                "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO tasks (id, title, category, due_date, parent_id, column_name, done, in_today, weekday, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     str(uuid4()),
                     subtask,
@@ -256,6 +306,7 @@ class ToDoColumn(BoxLayout):
                     self.column_key,
                     0,
                     1 if self.filter_mode == "today" else 0,
+                    weekday,
                     datetime.utcnow().isoformat()
                 )
             )
@@ -343,24 +394,37 @@ BoxLayout:
     def refresh_tasks(self):
         conn = get_connection()
         cur = conn.cursor()
+        weekday = self.get_active_weekday()
+        weekday_filter = " AND (weekday = ? OR weekday IS NULL)" if weekday is not None else ""
+        weekday_params = (weekday,) if weekday is not None else ()
 
         if self.filter_mode == "today":
-            parent_rows = cur.execute(
-                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NULL ORDER BY rowid DESC",
-                (self.column_key,)
-            ).fetchall()
-            sub_rows = cur.execute(
-                "SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NOT NULL ORDER BY rowid ASC",
-                (self.column_key,)
-            ).fetchall()
+            if self.is_weekly_column:
+                parent_rows = cur.execute(
+                    f"SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NULL{weekday_filter} ORDER BY rowid DESC",
+                    (self.column_key,) + weekday_params
+                ).fetchall()
+                sub_rows = cur.execute(
+                    f"SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NOT NULL{weekday_filter} ORDER BY rowid ASC",
+                    (self.column_key,) + weekday_params
+                ).fetchall()
+            else:
+                parent_rows = cur.execute(
+                    f"SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NULL{weekday_filter} ORDER BY rowid DESC",
+                    (self.column_key,) + weekday_params
+                ).fetchall()
+                sub_rows = cur.execute(
+                    f"SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 AND parent_id IS NOT NULL{weekday_filter} ORDER BY rowid ASC",
+                    (self.column_key,) + weekday_params
+                ).fetchall()
         else:
             parent_rows = cur.execute(
-                "SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NULL ORDER BY rowid DESC",
-                (self.column_key,)
+                f"SELECT id, title, category, due_date, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NULL{weekday_filter} ORDER BY rowid DESC",
+                (self.column_key,) + weekday_params
             ).fetchall()
             sub_rows = cur.execute(
-                "SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NOT NULL ORDER BY rowid ASC",
-                (self.column_key,)
+                f"SELECT id, title, parent_id, done, in_today FROM tasks WHERE column_name = ? AND parent_id IS NOT NULL{weekday_filter} ORDER BY rowid ASC",
+                (self.column_key,) + weekday_params
             ).fetchall()
 
         conn.close()
@@ -386,6 +450,7 @@ BoxLayout:
                         due_date=due_date or "",
                         done=bool(done) if self.toggle_mode == "done" else bool(in_today),
                         toggle_mode=self.toggle_mode,
+                        hide_toggle=self.filter_mode == "all" and self.is_weekly_column,
                     )
                 )
                 for subtask_id, subtask_title, subtask_done, subtask_in_today in subtasks_by_parent.get(task_id, []):
@@ -397,6 +462,7 @@ BoxLayout:
                             done=bool(subtask_done) if self.toggle_mode == "done" else bool(subtask_in_today),
                             toggle_mode=self.toggle_mode,
                             is_subtask=True,
+                            hide_toggle=self.filter_mode == "all" and self.is_weekly_column,
                         )
                     )
 
@@ -410,6 +476,7 @@ class TaskRow(BoxLayout):
     is_subtask = BooleanProperty(False)
     toggle_mode = StringProperty("standard")
     hovered = BooleanProperty(False)
+    hide_toggle = BooleanProperty(False)
 
     def __init__(self, column=None, **kwargs):
         self.column = column
