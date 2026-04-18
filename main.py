@@ -95,21 +95,55 @@ KV = """
         on_press: root.open_add_task_page()
 
 <PlannerRoot>:
-    orientation: "horizontal"
+    orientation: "vertical"
     spacing: 0
     padding: 0
 
-    ToDoColumn:
-        column_key: "list_1"
-        bg_color: [243/255, 154/255, 39/255, 1]
+    BoxLayout:
+        size_hint_y: None
+        height: 48
+        canvas.after:
+            Color:
+                rgba: [1, 1, 1, 1]
+            Line:
+                width: 1.2
+                points: self.x, self.y, self.right, self.y
+            Line:
+                width: 1.2
+                points: self.center_x, self.y, self.center_x, self.top
 
-    ToDoColumn:
-        column_key: "list_2"
-        bg_color: [151/255, 110/255, 215/255, 1]
+        Button:
+            text: "Today"
+            background_normal: ""
+            background_down: ""
+            background_color: [0, 0, 0, 0]
+            color: [1, 1, 1, 1]
+            font_size: "18sp"
 
-    ToDoColumn:
-        column_key: "list_3"
-        bg_color: [194/255, 59/255, 35/255, 1]
+        Button:
+            text: "All"
+            background_normal: ""
+            background_down: ""
+            background_color: [0, 0, 0, 0]
+            color: [1, 1, 1, 1]
+            font_size: "18sp"
+
+    BoxLayout:
+        orientation: "horizontal"
+        spacing: 0
+        padding: 0
+
+        ToDoColumn:
+            column_key: "list_1"
+            bg_color: [243/255, 154/255, 39/255, 1]
+
+        ToDoColumn:
+            column_key: "list_2"
+            bg_color: [151/255, 110/255, 215/255, 1]
+
+        ToDoColumn:
+            column_key: "list_3"
+            bg_color: [194/255, 59/255, 35/255, 1]
 """
 
 
