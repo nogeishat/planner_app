@@ -13,7 +13,7 @@ KV = """
 <ToDoColumn>:
     orientation: "vertical"
     spacing: 8
-    padding: 10
+    padding: 0
     size_hint_x: 1
 
     canvas.before:
