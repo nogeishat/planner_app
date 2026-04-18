@@ -9,7 +9,7 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    cur = conn.cursor()  # <-- THIS WAS MISSING
+    cur = conn.cursor()
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
@@ -17,9 +17,14 @@ def init_db():
             title TEXT,
             column_name TEXT,
             done INTEGER,
+            in_today INTEGER DEFAULT 0,
             updated_at TEXT
         )
     """)
+
+    columns = [row[1] for row in cur.execute("PRAGMA table_info(tasks)").fetchall()]
+    if "in_today" not in columns:
+        cur.execute("ALTER TABLE tasks ADD COLUMN in_today INTEGER DEFAULT 0")
 
     conn.commit()
     conn.close()

@@ -68,7 +68,7 @@ KV = """
 <ToDoColumn>:
     orientation: "vertical"
     spacing: 8
-    padding: 0
+    padding: [0, 8, 0, 0]
     size_hint_x: 1
 
     canvas.before:
@@ -77,6 +77,14 @@ KV = """
         Rectangle:
             pos: self.pos
             size: self.size
+
+    Label:
+        size_hint_y: None
+        height: 28
+        text: f"[b]{root.title}[/b]" if root.title else ""
+        markup: True
+        color: [1, 1, 1, 1]
+        font_size: "16sp"
 
     BoxLayout:
         id: tasks_box
@@ -95,26 +103,109 @@ KV = """
         on_press: root.open_add_task_page()
 
 <PlannerRoot>:
-    orientation: "horizontal"
+    orientation: "vertical"
     spacing: 0
     padding: 0
 
-    ToDoColumn:
-        column_key: "list_1"
-        bg_color: [243/255, 154/255, 39/255, 1]
+    BoxLayout:
+        size_hint_y: None
+        height: 48
+        canvas.after:
+            Color:
+                rgba: [1, 1, 1, 1]
+            Line:
+                width: 1.2
+                points: self.x, self.y, self.right, self.y
+            Line:
+                width: 1.2
+                points: self.center_x, self.y, self.center_x, self.top
 
-    ToDoColumn:
-        column_key: "list_2"
-        bg_color: [151/255, 110/255, 215/255, 1]
+        Button:
+            text: "Today"
+            background_normal: ""
+            background_down: ""
+            background_color: [1, 1, 1, 0.14] if root.current_view == "today" else [0, 0, 0, 0]
+            color: [1, 1, 1, 1]
+            font_size: "18sp"
+            on_press: root.show_today()
 
-    ToDoColumn:
-        column_key: "list_3"
-        bg_color: [194/255, 59/255, 35/255, 1]
+        Button:
+            text: "All"
+            background_normal: ""
+            background_down: ""
+            background_color: [1, 1, 1, 0.14] if root.current_view == "all" else [0, 0, 0, 0]
+            color: [1, 1, 1, 1]
+            font_size: "18sp"
+            on_press: root.show_all()
+
+    ScreenManager:
+        id: view_manager
+
+        Screen:
+            name: "today"
+
+            BoxLayout:
+                orientation: "horizontal"
+                spacing: 0
+                padding: 0
+
+                ToDoColumn:
+                    title: "List 1"
+                    column_key: "list_1"
+                    filter_mode: "today"
+                    toggle_mode: "done"
+                    bg_color: [243/255, 154/255, 39/255, 1]
+
+                ToDoColumn:
+                    title: "List 2"
+                    column_key: "list_2"
+                    filter_mode: "today"
+                    toggle_mode: "done"
+                    bg_color: [151/255, 110/255, 215/255, 1]
+
+                ToDoColumn:
+                    title: "List 3"
+                    column_key: "list_3"
+                    filter_mode: "today"
+                    toggle_mode: "done"
+                    bg_color: [194/255, 59/255, 35/255, 1]
+
+        Screen:
+            name: "all"
+
+            BoxLayout:
+                orientation: "horizontal"
+                spacing: 0
+                padding: 0
+
+                ToDoColumn:
+                    title: "List 1"
+                    column_key: "list_1"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
+                    bg_color: [243/255, 154/255, 39/255, 1]
+
+                ToDoColumn:
+                    title: "List 2"
+                    column_key: "list_2"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
+                    bg_color: [151/255, 110/255, 215/255, 1]
+
+                ToDoColumn:
+                    title: "List 3"
+                    column_key: "list_3"
+                    filter_mode: "all"
+                    toggle_mode: "in_today"
+                    bg_color: [194/255, 59/255, 35/255, 1]
 """
 
 
 class ToDoColumn(BoxLayout):
+    title = StringProperty("")
     column_key = StringProperty("")
+    filter_mode = StringProperty("today")
+    toggle_mode = StringProperty("done")
     bg_color = ListProperty([0.15, 0.15, 0.18, 1])
 
     def on_kv_post(self, base_widget):
@@ -131,12 +222,13 @@ class ToDoColumn(BoxLayout):
         from datetime import datetime
 
         cur.execute(
-            "INSERT INTO tasks (id, title, column_name, done, updated_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, column_name, done, in_today, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 str(uuid4()),
                 text,
                 self.column_key,
                 0,
+                1 if self.filter_mode == "today" else 0,
                 datetime.utcnow().isoformat()
             )
         )
@@ -144,7 +236,9 @@ class ToDoColumn(BoxLayout):
         conn.commit()
         conn.close()
 
-        self.refresh_tasks()
+        app = App.get_running_app()
+        if app:
+            app.refresh_all_columns()
 
     def open_add_task_page(self):
         app = App.get_running_app()
@@ -193,10 +287,16 @@ BoxLayout:
         conn = get_connection()
         cur = conn.cursor()
 
-        rows = cur.execute(
-            "SELECT id, title, done FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
-            (self.column_key,)
-        ).fetchall()
+        if self.filter_mode == "today":
+            rows = cur.execute(
+                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? AND in_today = 1 ORDER BY rowid DESC",
+                (self.column_key,)
+            ).fetchall()
+        else:
+            rows = cur.execute(
+                "SELECT id, title, done, in_today FROM tasks WHERE column_name = ? ORDER BY rowid DESC",
+                (self.column_key,)
+            ).fetchall()
 
         conn.close()
         tasks_box = self.ids.tasks_box
@@ -205,13 +305,14 @@ BoxLayout:
         if not rows:
             tasks_box.add_widget(TaskRow.empty_state())
         else:
-            for task_id, title, done in rows:
+            for task_id, title, done, in_today in rows:
                 tasks_box.add_widget(
                     TaskRow(
                         column=self,
                         task_id=task_id,
                         title=title,
-                        done=bool(done),
+                        done=bool(done) if self.toggle_mode == "done" else bool(in_today),
+                        toggle_mode=self.toggle_mode,
                     )
                 )
 
@@ -220,6 +321,7 @@ class TaskRow(BoxLayout):
     task_id = StringProperty("")
     title = StringProperty("")
     done = BooleanProperty(False)
+    toggle_mode = StringProperty("standard")
     hovered = BooleanProperty(False)
 
     def __init__(self, column=None, **kwargs):
@@ -249,10 +351,16 @@ class TaskRow(BoxLayout):
             return
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if value else 0, self.task_id))
+        if self.toggle_mode == "in_today":
+            cur.execute("UPDATE tasks SET in_today = ? WHERE id = ?", (1 if value else 0, self.task_id))
+        else:
+            cur.execute("UPDATE tasks SET done = ? WHERE id = ?", (1 if value else 0, self.task_id))
         conn.commit()
         conn.close()
         self.done = value
+        app = App.get_running_app()
+        if app:
+            app.refresh_all_columns()
 
     def delete_task(self):
         if not self.task_id:
@@ -262,12 +370,33 @@ class TaskRow(BoxLayout):
         cur.execute("DELETE FROM tasks WHERE id = ?", (self.task_id,))
         conn.commit()
         conn.close()
-        if self.column:
-            self.column.refresh_tasks()
+        app = App.get_running_app()
+        if app:
+            app.refresh_all_columns()
 
 
 class PlannerRoot(BoxLayout):
-    pass
+    current_view = StringProperty("today")
+
+    def on_kv_post(self, base_widget):
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("today")
+            app.refresh_columns_for_view("all")
+
+    def show_today(self):
+        self.current_view = "today"
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("today")
+        self.ids.view_manager.current = "today"
+
+    def show_all(self):
+        self.current_view = "all"
+        app = App.get_running_app()
+        if app:
+            app.refresh_columns_for_view("all")
+        self.ids.view_manager.current = "all"
 
 
 class PlannerApp(App):
@@ -287,6 +416,20 @@ class PlannerApp(App):
         if self.current_popup:
             self.current_popup.dismiss()
             self.current_popup = None
+
+    def refresh_all_columns(self):
+        if not self.root:
+            return
+        for widget in self.root.walk():
+            if isinstance(widget, ToDoColumn):
+                widget.refresh_tasks()
+
+    def refresh_columns_for_view(self, view_name):
+        if not self.root:
+            return
+        for widget in self.root.walk():
+            if isinstance(widget, ToDoColumn) and widget.filter_mode == view_name:
+                widget.refresh_tasks()
 
 
 if __name__ == "__main__":
