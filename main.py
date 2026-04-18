@@ -6,6 +6,7 @@ from kivy.core.window import Window
 from kivy.properties import StringProperty, ListProperty, BooleanProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
+from kivy.clock import Clock
 
 from database import init_db, get_connection
 
@@ -386,17 +387,17 @@ class PlannerRoot(BoxLayout):
 
     def show_today(self):
         self.current_view = "today"
+        self.ids.view_manager.current = "today"
         app = App.get_running_app()
         if app:
             app.refresh_columns_for_view("today")
-        self.ids.view_manager.current = "today"
 
     def show_all(self):
         self.current_view = "all"
+        self.ids.view_manager.current = "all"
         app = App.get_running_app()
         if app:
             app.refresh_columns_for_view("all")
-        self.ids.view_manager.current = "all"
 
 
 class PlannerApp(App):
@@ -420,16 +421,21 @@ class PlannerApp(App):
     def refresh_all_columns(self):
         if not self.root:
             return
+
+        # Refresh on the next UI frame so both screens stay in sync immediately
+        # after DB updates, regardless of which screen triggered the change.
+        Clock.schedule_once(lambda *_: self._refresh_columns(), 0)
+
+    def _refresh_columns(self, view_name=None):
+        if not self.root:
+            return
+
         for widget in self.root.walk():
-            if isinstance(widget, ToDoColumn):
+            if isinstance(widget, ToDoColumn) and (view_name is None or widget.filter_mode == view_name):
                 widget.refresh_tasks()
 
     def refresh_columns_for_view(self, view_name):
-        if not self.root:
-            return
-        for widget in self.root.walk():
-            if isinstance(widget, ToDoColumn) and widget.filter_mode == view_name:
-                widget.refresh_tasks()
+        self._refresh_columns(view_name=view_name)
 
 
 if __name__ == "__main__":
