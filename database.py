@@ -40,3 +40,24 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+def clear_completed_tasks_on_startup():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        DELETE FROM tasks
+        WHERE column_name != 'list_1'
+          AND (
+              done = 1
+              OR parent_id IN (
+                  SELECT id FROM tasks WHERE column_name != 'list_1' AND done = 1
+              )
+          )
+        """
+    )
+
+    conn.commit()
+    conn.close()
